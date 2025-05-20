@@ -3,7 +3,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // 👈 Corrigido aqui
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -14,7 +14,7 @@ const client = new Client({
 });
 
 client.on('qr', qr => {
-    console.log('Escaneie o QR Code abaixo:');
+    console.log('📱 Escaneie o QR Code abaixo:');
     qrcode.generate(qr, { small: true });
 });
 
@@ -47,7 +47,7 @@ app.get('/enviar', async (req, res) => {
         res.send(`✅ Mensagem enviada para ${numero}`);
     } catch (err) {
         console.error(err);
-        res.status(500).send('Erro ao enviar mensagem.');
+        res.status(500).send('❌ Erro ao enviar mensagem.');
     }
 });
 
@@ -60,20 +60,21 @@ app.get('/chats', async (req, res) => {
         }));
         res.json(lista);
     } catch (err) {
-        res.status(500).send('Erro ao obter chats.');
+        console.error(err);
+        res.status(500).send('❌ Erro ao obter chats.');
     }
 });
 
 app.get('/mensagens', async (req, res) => {
     const { numero } = req.query;
 
-    if (!numero) return res.status(400).send('Informe o número nos parâmetros.');
+    if (!numero) return res.status(400).send('⚠️ Informe o número nos parâmetros.');
 
     try {
         const chats = await client.getChats();
         const chat = chats.find(c => c.id.user === numero);
 
-        if (!chat) return res.status(404).send('Chat não encontrado.');
+        if (!chat) return res.status(404).send('❌ Chat não encontrado.');
 
         const mensagens = await chat.fetchMessages({ limit: 10 });
         const lista = mensagens.map(m => ({
@@ -85,7 +86,7 @@ app.get('/mensagens', async (req, res) => {
         res.json(lista);
     } catch (err) {
         console.error(err);
-        res.status(500).send('Erro ao obter mensagens.');
+        res.status(500).send('❌ Erro ao obter mensagens.');
     }
 });
 
