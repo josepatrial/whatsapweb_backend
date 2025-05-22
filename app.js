@@ -1,9 +1,22 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 
 const app = express();
-const PORT = process.env.PORT || 3000; // 👈 Corrigido aqui
+const server = http.createServer(app); // Servidor HTTP para usar com socket.io
+const io = new Server(server, {
+    cors: {
+        origin: '*', // ou coloque o domínio do seu CRM
+        methods: ['GET', 'POST']
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+
+// Middleware CORS
+app.use(cors());
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -13,15 +26,22 @@ const client = new Client({
     }
 });
 
+let isReady = false;
+
+// 📱 Evento de QR Code
 client.on('qr', qr => {
-    console.log('📱 Escaneie o QR Code abaixo:');
-    qrcode.generate(qr, { small: true });
+    console.log('📱 Escaneie o QR Code abaixo (também enviado via Socket.IO)');
+    io.emit('qr', qr); // Envia o QR para quem estiver ouvindo no frontend
 });
 
+// ✅ Pronto para uso
 client.on('ready', () => {
+    isReady = true;
     console.log('✅ WhatsApp conectado e pronto para uso!');
+    io.emit('ready'); // Notifica os clientes conectados
 });
 
+// 💬 Mensagens recebidas
 client.on('message', msg => {
     console.log(`📩 Mensagem recebida de ${msg.from}: ${msg.body}`);
     if (msg.body === '!ping') {
@@ -29,10 +49,12 @@ client.on('message', msg => {
     }
 });
 
+// Inicializa o WhatsApp Web
 client.initialize();
 
+// 🌐 Rotas HTTP
 app.get('/status', (req, res) => {
-    res.send(client.info ? '✅ Bot está pronto!' : '🕐 Bot não está pronto.');
+    res.send(isReady ? '✅ Bot está pronto!' : '🕐 Bot não está pronto.');
 });
 
 app.get('/enviar', async (req, res) => {
@@ -90,6 +112,16 @@ app.get('/mensagens', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+// 🔌 Conexão Socket.IO
+io.on('connection', (socket) => {
+    console.log('🔗 Novo cliente conectado via Socket.IO');
+    if (isReady) {
+        socket.emit('ready');
+    }
+});
+
+// 🚀 Inicia o servidor HTTP (com socket)
+server.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
+
