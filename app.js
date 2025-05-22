@@ -14,20 +14,23 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const API_TOKEN = 'SEU_TOKEN_AQUI'; // 🔒 Substitua por um token seguro
+
+// Pega o token da variável de ambiente, ou usa valor padrão (recomendo trocar)
+const API_TOKEN = process.env.API_TOKEN || 'meuTokenSecreto123';
 
 app.use(cors());
 
-// 🧱 Middleware de autenticação simples por token
+// Middleware de autenticação simples por token
 app.use((req, res, next) => {
     const token = req.headers['x-api-token'];
     if (token !== API_TOKEN) {
+        console.log(`[${new Date().toLocaleString()}] ❌ Acesso negado. Token inválido.`);
         return res.status(403).send('❌ Acesso negado. Token inválido.');
     }
     next();
 });
 
-// 🕒 Log com data/hora
+// Log com data/hora
 const log = (...args) => {
     console.log(`[${new Date().toLocaleString()}]`, ...args);
 };
@@ -42,20 +45,20 @@ const client = new Client({
 
 let isReady = false;
 
-// 📱 Evento de QR Code
+// Evento QR Code
 client.on('qr', qr => {
     log('📱 Escaneie o QR Code abaixo');
     io.emit('qr', qr);
 });
 
-// ✅ Bot pronto
+// Bot pronto
 client.on('ready', () => {
     isReady = true;
     log('✅ WhatsApp conectado e pronto!');
     io.emit('ready');
 });
 
-// 💬 Mensagem recebida
+// Mensagem recebida
 client.on('message', msg => {
     log(`📩 De ${msg.from}: ${msg.body}`);
     if (msg.body === '!ping') {
@@ -63,13 +66,11 @@ client.on('message', msg => {
     }
 });
 
-// Inicializa o cliente
 client.initialize();
 
-// 🔧 Utilitário para formatar números
 const formatarNumero = numero => numero.replace(/\D/g, '') + '@c.us';
 
-// 🌐 Rotas HTTP
+// Rotas HTTP
 
 app.get('/status', (req, res) => {
     res.send(isReady ? '✅ Bot está pronto!' : '🕐 Bot não está pronto.');
@@ -130,7 +131,7 @@ app.get('/mensagens', async (req, res) => {
     }
 });
 
-// 🔌 Socket.IO
+// Socket.IO
 io.on('connection', (socket) => {
     log('🔗 Novo cliente conectado via Socket.IO');
     if (isReady) {
@@ -138,7 +139,7 @@ io.on('connection', (socket) => {
     }
 });
 
-// 🚀 Inicia o servidor
 server.listen(PORT, () => {
     log(`🚀 Servidor rodando na porta ${PORT}`);
+    log(`🔐 Token API esperado: ${API_TOKEN}`);
 });
