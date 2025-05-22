@@ -43,4 +43,102 @@ const client = new Client({
 let isReady = false;
 
 // 📱 Evento de QR Code
-client.o
+client.on('qr', qr => {
+    log('📱 Escaneie o QR Code abaixo');
+    io.emit('qr', qr);
+});
+
+// ✅ Bot pronto
+client.on('ready', () => {
+    isReady = true;
+    log('✅ WhatsApp conectado e pronto!');
+    io.emit('ready');
+});
+
+// 💬 Mensagem recebida
+client.on('message', msg => {
+    log(`📩 De ${msg.from}: ${msg.body}`);
+    if (msg.body === '!ping') {
+        msg.reply('pong 🏓');
+    }
+});
+
+// Inicializa o cliente
+client.initialize();
+
+// 🔧 Utilitário para formatar números
+const formatarNumero = numero => numero.replace(/\D/g, '') + '@c.us';
+
+// 🌐 Rotas HTTP
+
+app.get('/status', (req, res) => {
+    res.send(isReady ? '✅ Bot está pronto!' : '🕐 Bot não está pronto.');
+});
+
+app.get('/enviar', async (req, res) => {
+    const { numero, mensagem } = req.query;
+
+    if (!numero || !mensagem) {
+        return res.status(400).send('⚠️ Informe "numero" e "mensagem".');
+    }
+
+    const numeroFormatado = formatarNumero(numero);
+
+    try {
+        await client.sendMessage(numeroFormatado, mensagem);
+        res.send(`✅ Mensagem enviada para ${numero}`);
+    } catch (err) {
+        log('Erro ao enviar mensagem:', err);
+        res.status(500).send('❌ Erro interno ao enviar mensagem.');
+    }
+});
+
+app.get('/chats', async (req, res) => {
+    try {
+        const chats = await client.getChats();
+        const lista = chats.map(chat => ({
+            nome: chat.name || chat.id.user,
+            id: chat.id._serialized
+        }));
+        res.json(lista);
+    } catch (err) {
+        log('Erro ao listar chats:', err);
+        res.status(500).send('❌ Erro interno ao obter chats.');
+    }
+});
+
+app.get('/mensagens', async (req, res) => {
+    const { numero } = req.query;
+    if (!numero) return res.status(400).send('⚠️ Informe o "numero".');
+
+    try {
+        const chats = await client.getChats();
+        const chat = chats.find(c => c.id.user === numero.replace(/\D/g, ''));
+        if (!chat) return res.status(404).send('❌ Chat não encontrado.');
+
+        const mensagens = await chat.fetchMessages({ limit: 10 });
+        const lista = mensagens.map(m => ({
+            autor: m.from,
+            corpo: m.body,
+            data: m.timestamp
+        }));
+
+        res.json(lista);
+    } catch (err) {
+        log('Erro ao obter mensagens:', err);
+        res.status(500).send('❌ Erro interno ao obter mensagens.');
+    }
+});
+
+// 🔌 Socket.IO
+io.on('connection', (socket) => {
+    log('🔗 Novo cliente conectado via Socket.IO');
+    if (isReady) {
+        socket.emit('ready');
+    }
+});
+
+// 🚀 Inicia o servidor
+server.listen(PORT, () => {
+    log(`🚀 Servidor rodando na porta ${PORT}`);
+});
